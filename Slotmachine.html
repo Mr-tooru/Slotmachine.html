@@ -1,0 +1,290 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slot Machine</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #508030;
+        }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-gap: 10px;
+            margin-bottom: 20px;
+        }
+        .horizontal {
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: none;
+        }
+        .vertical {
+            grid-template-columns: repeat(3, 60px);
+        }
+        .cell {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #message {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        #scoreboard {
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Slot Machine</h1>
+    <div id="scoreboard">
+        <span id="scoreMessage">Score: 0 | Spins: 0</span>
+    </div>
+    <div id="grid" class="vertical">
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+    </div>
+    <button id="switchModeButton">Switch to 1x3</button>
+    <button id="spinButton">Spin</button>
+    <button id="resetScoreButton">Reset Score</button>
+    <button id="redirectButton">Back to Games</button>
+    <div id="message"></div>
+    <script>
+        const grid = document.getElementById('grid');
+        const cells = Array.from(grid.children);
+        const spinButton = document.getElementById('spinButton');
+        const resetScoreButton = document.getElementById('resetScoreButton');
+        const redirectButton = document.getElementById('redirectButton');
+        const switchModeButton = document.getElementById('switchModeButton');
+        const message = document.getElementById('message');
+        const scoreMessage = document.getElementById('scoreMessage');
+        const symbols = ['🍒', '🍋', '🔔', '⭐', '🍀', '💎', '🎲', '💰', '🐒'];
+        let is1x3 = false;
+        let intervalId, spinDuration = 750, slowdownRate = 50, score = 0, spins = 0;
+
+        function updateLocalStorage() {
+            localStorage.setItem('score', score);
+            localStorage.setItem('spins', spins);
+        }
+
+        function loadLocalStorage() {
+            const storedScore = localStorage.getItem('score');
+            const storedSpins = localStorage.getItem('spins');
+            if (storedScore) score = parseInt(storedScore);
+            if (storedSpins) spins = parseInt(storedSpins);
+            updateMessage();
+        }
+
+        function updateMessage() {
+            message.textContent = `Score: ${score}`;
+            scoreMessage.textContent = `Score: ${score}`;
+        }
+
+        spinButton.addEventListener('click', () => {
+            if (is1x3 && score < 1) {
+                message.textContent = 'Not enough score to spin the 1x3 slot!';
+                return;
+            }
+            if (!is1x3 && score < 3) {
+                message.textContent = 'Not enough score to spin the 3x3 slot!';
+                return;
+            }
+
+            message.textContent = 'Spinning...';
+            spinButton.disabled = true;
+
+            const spinCost = is1x3 ? 1 : 3;
+            score -= spinCost;
+
+            cells.forEach(cell => cell.textContent = symbols[Math.floor(Math.random() * symbols.length)]);
+            spinReels();
+        });
+
+        function spinReels() {
+            let speed = 100, spinsCount = 0;
+            const spinCells = is1x3 ? cells.slice(0, 3) : cells;
+            intervalId = setInterval(() => {
+                spinCells.forEach(cell => cell.textContent = symbols[Math.floor(Math.random() * symbols.length)]);
+                if (speed > slowdownRate) speed -= 20;
+                spinsCount++;
+                if (spinsCount * speed >= spinDuration) {
+                    clearInterval(intervalId);
+                    checkWin(spinCells);
+                    spinButton.disabled = false;
+                }
+            }, speed);
+        }
+
+        function checkWin() {
+    const board = cells.map(cell => cell.textContent);
+    let hasWon = false;
+
+    if (is1x3) {
+        // Check horizontal win for 1x3
+        if (board[0] === board[1] && board[1] === board[2]) {
+            message.textContent = `🎉 Winner! ${board[0]} in the 1x3 slot! 🎉`;
+            updateScore(board[0]);
+            hasWon = true;
+        }
+    } else {
+        // Check horizontal wins for 3x3
+        for (let r = 0; r < 3; r++) {
+            const start = r * 3;
+            if (board[start] === board[start + 1] && board[start + 1] === board[start + 2]) {
+                message.textContent = `🎉 Winner! ${board[start]} in row ${r + 1}! 🎉`;
+                updateScore(board[start]);
+                hasWon = true;
+                break;
+            }
+        }
+
+        // Check vertical wins for 3x3
+        if (!hasWon) {
+            for (let c = 0; c < 3; c++) {
+                if (board[c] === board[c + 3] && board[c + 3] === board[c + 6]) {
+                    message.textContent = `🎉 Winner! ${board[c]} in column ${c + 1}! 🎉`;
+                    updateScore(board[c]);
+                    hasWon = true;
+                    break;
+                }
+            }
+        }
+
+        // Check diagonal wins for 3x3
+        if (!hasWon) {
+            if (board[0] === board[4] && board[4] === board[8]) {
+                message.textContent = `🎉 Winner! ${board[0]} in the diagonal from top left to bottom right! 🎉`;
+                updateScore(board[0]);
+                hasWon = true;
+            } else if (board[2] === board[4] && board[4] === board[6]) {
+                message.textContent = `🎉 Winner! ${board[2]} in the diagonal from top right to bottom left! 🎉`;
+                updateScore(board[2]);
+                hasWon = true;
+            }
+        }
+    }
+
+    // If no win, display a fail message
+    if (!hasWon) {
+        message.textContent = 'Try again!';
+    }
+
+    // Deduct score for spin cost
+    if (is1x3) {
+        score -= 1; // Deduct 1 score for 1x3
+    } else {
+        score -= 3; // Deduct 3 score for 3x3
+    }
+
+    // Increment spins count
+    spins++;
+    updateLocalStorage();
+    updateMessage();
+}
+
+
+        function check3x3Win(board) {
+            // Similar win checks for 3x3 as in your original logic
+        }
+
+        function updateScore(symbol) {
+    const scoreValues = {
+        '🍒': 500,
+        '🍋': 250,
+        '🔔': 100,
+        '⭐': 75,
+        '🍀': 300,
+        '💎': 750,
+        '🎲': 125,
+        '💰': 200,
+        '🐒': 10000
+    };
+
+    if (scoreValues[symbol]) {
+        score += scoreValues[symbol]; // Add score based on the symbol
+    } else {
+        console.error(`No score defined for symbol: ${symbol}`);
+    }
+
+    updateLocalStorage();
+    updateMessage();
+}
+
+
+        resetScoreButton.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset the score and spins?')) {
+                score = 0;
+                spins = 0;
+                updateLocalStorage();
+                updateMessage();
+            }
+        });
+
+        redirectButton.addEventListener('click', () => {
+            window.location.href = 'Games.html';
+        });
+
+        switchModeButton.addEventListener('click', () => {
+    is1x3 = !is1x3;
+
+    if (is1x3) {
+        grid.style.gridTemplateColumns = 'repeat(3, 60px)';
+        grid.style.gridTemplateRows = 'none';
+        cells.forEach((cell, index) => {
+            cell.style.display = index < 3 ? 'flex' : 'none'; // Show only the first 3 cells
+        });
+        switchModeButton.textContent = 'Switch to 3x3';
+    } else {
+        grid.style.gridTemplateColumns = 'repeat(3, 60px)';
+        grid.style.gridTemplateRows = 'repeat(3, 60px)';
+        cells.forEach(cell => (cell.style.display = 'flex')); // Show all cells
+        switchModeButton.textContent = 'Switch to 1x3';
+    }
+
+    message.textContent = '';
+});
+
+        loadLocalStorage();
+    </script>
+</body>
+</html>
