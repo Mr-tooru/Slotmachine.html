@@ -206,14 +206,6 @@
             if (!hasWon) {
                 message.textContent = 'Try again!';
             }
-
-            // Deduct score for spin cost
-            if (is1x3) {
-                score -= 1; // Deduct 1 score for 1x3
-            } else {
-                score -= 3; // Deduct 3 score for 3x3
-            }
-
             // Increment spins count
             spins++;
             updateLocalStorage();
