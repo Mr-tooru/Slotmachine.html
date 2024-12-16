@@ -87,12 +87,14 @@
     <button id="switchModeButton">Switch to 1x3</button>
     <button id="spinButton">Spin</button>
     <button id="resetScoreButton">Reset Score</button>
+    <button id="redirectButton">Back to Games</button>
     <div id="message"></div>
     <script>
         const grid = document.getElementById('grid');
         const cells = Array.from(grid.children);
         const spinButton = document.getElementById('spinButton');
         const resetScoreButton = document.getElementById('resetScoreButton');
+        const redirectButton = document.getElementById('redirectButton');
         const switchModeButton = document.getElementById('switchModeButton');
         const message = document.getElementById('message');
         const scoreMessage = document.getElementById('scoreMessage');
@@ -138,102 +140,134 @@
             spinReels();
         });
 
-        function spinReels() {
-            let speed = 100, spinsCount = 0;
-            const spinCells = is1x3 ? cells.slice(0, 3) : cells;
-            intervalId = setInterval(() => {
-                spinCells.forEach(cell => cell.textContent = symbols[Math.floor(Math.random() * symbols.length)]);
-                if (speed > slowdownRate) speed -= 20;
-                spinsCount++;
-                if (spinsCount * speed >= spinDuration) {
-                    clearInterval(intervalId);
-                    checkWin(spinCells);
-                    spinButton.disabled = false;
-                }
-            }, speed);
+        const symbolsWithWeights = [
+    { symbol: '🍒', weight: 2 },  // higher the number bigger the odds that you get it
+    { symbol: '💰', weight: 1 },  
+    { symbol: '💎', weight: 1 },  
+    { symbol: '🐒', weight: 0.05 }, 
+    { symbol: '🍀', weight: 2 },  
+    { symbol: '⭐', weight: 5 },  
+    { symbol: '🔔', weight: 8 }, 
+    { symbol: '🍋', weight: 15 },
+    { symbol: '🎲', weight: 10 }  
+];
+
+// Create a weighted array for probability
+const weightedSymbols = [];
+symbolsWithWeights.forEach(item => {
+    const count = Math.round(item.weight * 10); // Scale weights for finer control
+    for (let i = 0; i < count; i++) {
+        weightedSymbols.push(item.symbol);
+    }
+});
+
+// Updated spin logic to use weighted symbols
+function spinReels() {
+    let speed = 100, spinsCount = 0;
+    const spinCells = is1x3 ? cells.slice(0, 3) : cells;
+    intervalId = setInterval(() => {
+        spinCells.forEach(cell => {
+            const randomIndex = Math.floor(Math.random() * weightedSymbols.length);
+            cell.textContent = weightedSymbols[randomIndex];
+        });
+        if (speed > slowdownRate) speed -= 20;
+        spinsCount++;
+        if (spinsCount * speed >= spinDuration) {
+            clearInterval(intervalId);
+            checkWin(spinCells);
+            spinButton.disabled = false;
         }
+    }, speed);
+}
 
         function checkWin() {
-            const board = cells.map(cell => cell.textContent);
-            let hasWon = false;
+    const board = cells.map(cell => cell.textContent);
+    let hasWon = false;
 
-            if (is1x3) {
-                // Check horizontal win for 1x3
-                if (board[0] === board[1] && board[1] === board[2]) {
-                    message.textContent = `🎉 Winner! ${board[0]} in the 1x3 slot! 🎉`;
-                    updateScore(board[0]);
+    if (is1x3) {
+        // Check horizontal win for 1x3
+        if (board[0] === board[1] && board[1] === board[2]) {
+            message.textContent = `🎉 Winner! ${board[0]} in the 1x3 slot! 🎉`;
+            updateScore(board[0]);
+            hasWon = true;
+        }
+    } else {
+        // Check horizontal wins for 3x3
+        for (let r = 0; r < 3; r++) {
+            const start = r * 3;
+            if (board[start] === board[start + 1] && board[start + 1] === board[start + 2]) {
+                message.textContent = `🎉 Winner! ${board[start]} in row ${r + 1}! 🎉`;
+                updateScore(board[start]);
+                hasWon = true;
+                break;
+            }
+        }
+
+        // Check vertical wins for 3x3
+        if (!hasWon) {
+            for (let c = 0; c < 3; c++) {
+                if (board[c] === board[c + 3] && board[c + 3] === board[c + 6]) {
+                    message.textContent = `🎉 Winner! ${board[c]} in column ${c + 1}! 🎉`;
+                    updateScore(board[c]);
                     hasWon = true;
-                }
-            } else {
-                // Check horizontal wins for 3x3
-                for (let r = 0; r < 3; r++) {
-                    const start = r * 3;
-                    if (board[start] === board[start + 1] && board[start + 1] === board[start + 2]) {
-                        message.textContent = `🎉 Winner! ${board[start]} in row ${r + 1}! 🎉`;
-                        updateScore(board[start]);
-                        hasWon = true;
-                        break;
-                    }
-                }
-
-                // Check vertical wins for 3x3
-                if (!hasWon) {
-                    for (let c = 0; c < 3; c++) {
-                        if (board[c] === board[c + 3] && board[c + 3] === board[c + 6]) {
-                            message.textContent = `🎉 Winner! ${board[c]} in column ${c + 1}! 🎉`;
-                            updateScore(board[c]);
-                            hasWon = true;
-                            break;
-                        }
-                    }
-                }
-
-                // Check diagonal wins for 3x3
-                if (!hasWon) {
-                    if (board[0] === board[4] && board[4] === board[8]) {
-                        message.textContent = `🎉 Winner! ${board[0]} in the diagonal from top left to bottom right! 🎉`;
-                        updateScore(board[0]);
-                        hasWon = true;
-                    } else if (board[2] === board[4] && board[4] === board[6]) {
-                        message.textContent = `🎉 Winner! ${board[2]} in the diagonal from top right to bottom left! 🎉`;
-                        updateScore(board[2]);
-                        hasWon = true;
-                    }
+                    break;
                 }
             }
+        }
 
-            // If no win, display a fail message
-            if (!hasWon) {
-                message.textContent = 'Try again!';
+        // Check diagonal wins for 3x3
+        if (!hasWon) {
+            if (board[0] === board[4] && board[4] === board[8]) {
+                message.textContent = `🎉 Winner! ${board[0]} in the diagonal from top left to bottom right! 🎉`;
+                updateScore(board[0]);
+                hasWon = true;
+            } else if (board[2] === board[4] && board[4] === board[6]) {
+                message.textContent = `🎉 Winner! ${board[2]} in the diagonal from top right to bottom left! 🎉`;
+                updateScore(board[2]);
+                hasWon = true;
             }
-            // Increment spins count
-            spins++;
-            updateLocalStorage();
-            updateMessage();
+        }
+    }
+
+    // If no win, display a fail message
+    if (!hasWon) {
+        message.textContent = 'Try again!';
+    }
+
+    // Increment spins count
+    spins++;
+    updateLocalStorage();
+    updateMessage();
+}
+
+
+        function check3x3Win(board) {
+            // Similar win checks for 3x3 as in your original logic
         }
 
         function updateScore(symbol) {
-            const scoreValues = {
-                '🍒': 500,
-                '🍋': 250,
-                '🔔': 100,
-                '⭐': 75,
-                '🍀': 300,
-                '💎': 750,
-                '🎲': 125,
-                '💰': 200,
-                '🐒': 10000
-            };
+    const scoreValues = {
+        '🍒': 50,
+        '🍋': 25,
+        '🔔': 10,
+        '⭐': 5,
+        '🍀': 30,
+        '💎': 75,
+        '🎲': 12,
+        '💰': 20,
+        '🐒': 10000
+    };
 
-            if (scoreValues[symbol]) {
-                score += scoreValues[symbol]; // Add score based on the symbol
-            } else {
-                console.error(`No score defined for symbol: ${symbol}`);
-            }
+    if (scoreValues[symbol]) {
+        score += scoreValues[symbol]; // Add score based on the symbol
+    } else {
+        console.error(`No score defined for symbol: ${symbol}`);
+    }
 
-            updateLocalStorage();
-            updateMessage();
-        }
+    updateLocalStorage();
+    updateMessage();
+}
+
 
         resetScoreButton.addEventListener('click', () => {
             if (confirm('Are you sure you want to reset the score and spins?')) {
@@ -244,25 +278,29 @@
             }
         });
 
-        switchModeButton.addEventListener('click', () => {
-            is1x3 = !is1x3;
-
-            if (is1x3) {
-                grid.style.gridTemplateColumns = 'repeat(3, 60px)';
-                grid.style.gridTemplateRows = 'none';
-                cells.forEach((cell, index) => {
-                    cell.style.display = index < 3 ? 'flex' : 'none'; // Show only the first 3 cells
-                });
-                switchModeButton.textContent = 'Switch to 3x3';
-            } else {
-                grid.style.gridTemplateColumns = 'repeat(3, 60px)';
-                grid.style.gridTemplateRows = 'repeat(3, 60px)';
-                cells.forEach(cell => (cell.style.display = 'flex')); // Show all cells
-                switchModeButton.textContent = 'Switch to 1x3';
-            }
-
-            message.textContent = '';
+        redirectButton.addEventListener('click', () => {
+            window.location.href = 'Games.html';
         });
+
+        switchModeButton.addEventListener('click', () => {
+    is1x3 = !is1x3;
+
+    if (is1x3) {
+        grid.style.gridTemplateColumns = 'repeat(3, 60px)';
+        grid.style.gridTemplateRows = 'none';
+        cells.forEach((cell, index) => {
+            cell.style.display = index < 3 ? 'flex' : 'none'; // Show only the first 3 cells
+        });
+        switchModeButton.textContent = 'Switch to 3x3';
+    } else {
+        grid.style.gridTemplateColumns = 'repeat(3, 60px)';
+        grid.style.gridTemplateRows = 'repeat(3, 60px)';
+        cells.forEach(cell => (cell.style.display = 'flex')); // Show all cells
+        switchModeButton.textContent = 'Switch to 1x3';
+    }
+
+    message.textContent = '';
+});
 
         loadLocalStorage();
     </script>
